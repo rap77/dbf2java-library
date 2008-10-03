@@ -23,90 +23,88 @@ import java.util.logging.Logger;
  *
  */
 public class DbfFile {
-    static final Logger logger = Logger.getLogger(DbfFile.class
-            .getCanonicalName());
-    
+
+    static final Logger logger = Logger.getLogger(DbfFile.class.getCanonicalName());
     private int type;
-    
     private Date lastUpdate;
-    
     private int count;
-    
     private int dataOffset;
-    
     private int recordWidth;
-    
     private int tableFlag;
-    
     private Field[] fields;
-    
     private int pointer;
-    
     private RandomAccessFile file;
-    
+    private boolean deleted;
+
     public DbfFile(String nombre) throws FileNotFoundException {
         this(new File(nombre));
-        
+
     }
-    
+
     public DbfFile(File file) throws FileNotFoundException {
         if (file.exists()) {
             this.file = new RandomAccessFile(file, "rwd");
-        } else
+        } else {
             throw new FileNotFoundException();
+        }
     }
-    
+
     public void open() throws IOException {
         byte[] data = new byte[1024 * 3];
-        
+
         file.read(data, 0, data.length);
         logger.log(Level.INFO, "header:" + data);
         // type
         type = data[0];
         logger.log(Level.INFO, "type:" + type);
-        
+
         // Last update (YYMMDD)
         Calendar cal = Calendar.getInstance();
         cal.set((data[1] < 1980 ? 2000 : 1980) + (int) data[1], (int) data[2],
                 (int) data[3]);
         lastUpdate = cal.getTime();
         logger.log(Level.INFO, "last update:" + lastUpdate);
-        
+
         // cantidad de registros
-        
-        count = array2integer(new byte[] { data[4], data[5], data[6], data[7] });
-        
+
+        count = array2integer(new byte[]{data[4], data[5], data[6], data[7]});
+
         logger.log(Level.INFO, "count:" + count);
         // inicio de datos
-        dataOffset = array2integer(new byte[] { data[8], data[9] });
+        dataOffset = array2integer(new byte[]{data[8], data[9]});
         logger.log(Level.INFO, "data offset:" + dataOffset);
         // ancho de cada registro
-        recordWidth = array2integer(new byte[] { data[10], data[11] });
+        recordWidth = array2integer(new byte[]{data[10], data[11]});
         logger.log(Level.INFO, "record width:" + recordWidth);
         // flag de la tabla
         tableFlag = data[28];
         logger.log(Level.INFO, "table flag:" + recordWidth);
         // info de campos
-        
+
         List<Byte> $data = new ArrayList<Byte>();
-        for (int i = 32; data[i] != 0x0d; i+=32){
-            
-            byte[] bloque=Arrays.copyOfRange(data,i,i+32);
-            
-            Collection<Byte> $bloque=new ArrayList<Byte>();
-            for(byte $byte:bloque)
+        for (int i = 32; data[i] != 0x0d; i += 32) {
+
+            byte[] bloque = Arrays.copyOfRange(data, i, i + 32);
+
+            Collection<Byte> $bloque = new ArrayList<Byte>();
+            for (byte $byte : bloque) {
                 $bloque.add($byte);
+            }
             $data.addAll($bloque);
         }
         loadFieldsStructure($data);
-        
+
         logger.log(Level.INFO, "fields count:" + fields.length);
         pointer = 1;
-        
+
     }
-    
+
+    public int skip() throws IOException {
+        return skip(1);
+    }
+
     private void loadFieldsStructure(List<Byte> $data) {
-        
+
         logger.log(Level.INFO, "size fields structure:" + $data.size());
         List<Field> $fields = new ArrayList<Field>();
         for (int i = 0; i < $data.size(); i += 32) {
@@ -114,29 +112,31 @@ public class DbfFile {
             $fields.add(Field.newInstance($segment));
         }
         fields = $fields.toArray(new Field[0]);
-        
+
     }
-    
+
     private static byte[] extractArray(List<Byte> data, int from, int count) {
         byte[] $ret = new byte[count];
-        for (int i = 0; i < count; i++)
-            if (data.size() > (from + i))
+        for (int i = 0; i < count; i++) {
+            if (data.size() > (from + i)) {
                 $ret[i] = data.get(from + i);
+            }
+        }
         return $ret;
     }
-    
+
     private static byte[] extractArray(byte[] data, int from, int count) {
         byte[] $ret = new byte[count];
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++) {
             $ret[i] = data[from + i];
+        }
         return $ret;
     }
-    
-        /*
-         * private static int parseBin(Byte[] bs) { byte[] bb = new byte[bs.length];
-         * for (int i = 0; i < bs.length; i++) bb[i] = bs[i]; return parseBin(bb); }
-         */
-    
+
+    /*
+     * private static int parseBin(Byte[] bs) { byte[] bb = new byte[bs.length];
+     * for (int i = 0; i < bs.length; i++) bb[i] = bs[i]; return parseBin(bb); }
+     */
     private static int array2integer(byte[] bs) {
         int ret = 0;
         for (int i = 0; i < bs.length; i++) {
@@ -144,22 +144,22 @@ public class DbfFile {
         }
         return ret;
     }
-    
+
     public void close() throws IOException {
         logger.info("Closing");
         file.close();
-        
+
     }
-    
+
     public Date getLastUpdate() {
         return lastUpdate;
-        
+
     }
-    
+
     public int getType() {
         return type;
     }
-    
+
     public String getTypeName() {
         switch (type) {
             case 0x02:
@@ -186,129 +186,130 @@ public class DbfFile {
                 return "FoxBASE";
         }
         return null;
-        
+
     }
-    
+
     public int getCount() {
         return count;
     }
-    
+
     public int recCount() {
         return getCount();
     }
-    
+
     public int getDataOffset() {
         return dataOffset;
     }
-    
+
     public int getRecordWidth() {
         return recordWidth;
     }
-    
+
     public int getTableFlag() {
         return tableFlag;
     }
-    
+
     public boolean hasStructuralCDX() {
         return (tableFlag & 0x01) == 0x01;
     }
-    
+
     public boolean hasMemoField() {
         return (tableFlag & 0x02) == 0x02;
     }
-    
+
     public boolean isDatabase() {
         return (tableFlag & 0x04) == 0x04;
     }
-    
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
+
     public static class Field {
+
         String name = "";
-        
         char type;
-        
         int offset;
-        
         short length;
-        
         short decimalPlaces;
-        
         short flag;
-        
         int nextAutovalue;
-        
         int stepAutovalue;
-        
+
         static Field newInstance(byte[] data) {
             Field f = new Field();
-            for (int i = 0; i < 10 && data[i] != 0; i++)
+            for (int i = 0; i < 10 && data[i] != 0; i++) {
                 f.name += (char) data[i];
+            }
             f.type = (char) data[11];
             logger.log(Level.FINE, "field name  :" + f.name);
-            f.offset = array2integer(new byte[] { data[12], data[13], data[14],
-            data[15] });
-            
+            f.offset = array2integer(new byte[]{data[12], data[13], data[14],
+                        data[15]});
+
             logger.log(Level.FINE, "field offset:" + f.offset);
             f.length = data[16];
             logger.log(Level.FINE, "field length:" + f.length);
-            
+
             f.decimalPlaces = data[17];
             logger.log(Level.FINE, "field dec.  :" + f.decimalPlaces);
             f.flag = data[18];
             logger.log(Level.FINE, "field flag  :" + f.flag);
-            f.nextAutovalue = array2integer(new byte[] { data[19], data[20],
-            data[21], data[22] });
+            f.nextAutovalue = array2integer(new byte[]{data[19], data[20],
+                        data[21], data[22]});
             f.stepAutovalue = data[23];
             logger.log(Level.INFO, f.name + "\t" + f.type + "\t" + f.length);
             return f;
         }
-        
-                /*
-                 * public Field(String name, char type, int offset, short length, short
-                 * decimalPlaces, short flag) { this(); this.name = name; this.type =
-                 * type; this.offset = offset; this.length = length; this.decimalPlaces =
-                 * decimalPlaces; this.flag = flag; }
-                 *
-                 * public Field() { }
-                 */
-        
+
+        /*
+         * public Field(String name, char type, int offset, short length, short
+         * decimalPlaces, short flag) { this(); this.name = name; this.type =
+         * type; this.offset = offset; this.length = length; this.decimalPlaces =
+         * decimalPlaces; this.flag = flag; }
+         *
+         * public Field() { }
+         */
         public short getDecimalPlaces() {
             return decimalPlaces;
         }
-        
+
         public short getFlag() {
             return flag;
         }
-        
+
         public short getLength() {
             return length;
         }
-        
+
         public String getName() {
             return name;
         }
-        
+
         public int getNextAutovalue() {
             return nextAutovalue;
         }
-        
+
         public int getOffset() {
             return offset;
         }
-        
+
         public int getStepAutovalue() {
             return stepAutovalue;
         }
-        
+
         public char getType() {
             return type;
         }
-        
+
         public void setName(String name) {
             this.name = name;
         }
-        
     }
-    
+
     /**
      * Cambia el apuntador al registro index. Si Index es menor a 1, el nuevo
      * valor ser� 1. Si Index es mayor a la cantidad de registros, el puntero se
@@ -318,11 +319,22 @@ public class DbfFile {
      *            El nuevo registro a apuntar
      * @return La nueva ubicacion
      */
-    public int go(int index) {
-        return pointer = index > 0 ? index > count ? count + 1 : index : 1;
+    public int go(int index) throws IOException {
+        pointer = index > 0 ? index > count ? count + 1 : index : 1;
+        if (isDeleted() && isDeletedRecord() && !eof()) {
+            skip();
+        }
+        return pointer;
     }
-    
-    public int go(Position pos) {
+
+    public boolean isDeletedRecord() throws IOException {
+        file.seek(dataOffset + (pointer - 1) * recordWidth);
+        byte[] data = new byte[recordWidth];
+        file.read(data);
+        return data[0] != ' ';
+    }
+
+    public int go(Position pos) throws IOException {
         switch (pos) {
             case TOP:
                 return go(1);
@@ -330,14 +342,14 @@ public class DbfFile {
                 return go(count);
         }
         return pointer;
-        
+
     }
-    
-    public int skip(int delta) {
+
+    public int skip(int delta) throws IOException {
         pointer += delta;
         return go(pointer);
     }
-    
+
     /**
      * Devuelve la actual posici�n del puntero de registros
      *
@@ -346,7 +358,7 @@ public class DbfFile {
     public int recNo() {
         return pointer;
     }
-    
+
     /**
      * Devuelve si el puntero de registros se encuentra despu�s del �ltimo
      * registro
@@ -356,7 +368,7 @@ public class DbfFile {
     public boolean eof() {
         return recNo() > count;
     }
-    
+
     /**
      * Agrega un registro en blanco al DBF. Si no logra hacerlo, retornar� la
      * misma cantidad de registros antes de hacer el Append.
@@ -366,17 +378,17 @@ public class DbfFile {
      */
     public int append() throws IOException {
         if (updateHeader(4, 4, count + 1)) {
-            
+
             byte[] data = new byte[recordWidth];
             Arrays.fill(data, (byte) ' ');
             file.seek(dataOffset + (count) * recordWidth);
             file.write(data);
             pointer = ++count;
-            
+
         }
         return count;
     }
-    
+
     /**
      * Retorna los valores del registro actual. Devuelve un mapa con el nombre
      * del campo y el valor asociado al registro
@@ -394,7 +406,7 @@ public class DbfFile {
         for (Field field : fields) {
             byte[] arr = extractArray(data, field.offset, field.length);
             for (byte a : arr) {
-                
+
                 sb.append((char) (a & 0xff));
             }
             ret.put(field.getName(), sb.toString().trim());
@@ -403,7 +415,7 @@ public class DbfFile {
         }
         return ret;
     }
-    
+
     /**
      * Guarda los datos de record en el registro actual.
      *
@@ -414,39 +426,40 @@ public class DbfFile {
      *             si ocurre un error al guardar los datos
      */
     public void gatter(Map<String, String> record) throws IOException {
-        
+
         byte[] data = new byte[recordWidth];
         Arrays.fill(data, (byte) ' ');
         for (Field field : fields) {
             String value = record.get(field.getName());
-            if (value != null)
+            if (value != null) {
                 value2array(value, data, field.offset, field.length);
+            }
         }
         file.seek(dataOffset + (pointer - 1) * recordWidth);
         file.write(data);
     }
-    
+
     private static void value2array(String value, byte[] data, int offset,
             short length) {
-        
+
         for (int i = 0; i < length && i < value.length(); i++) {
             data[i + offset] = (byte) value.charAt(i);
         }
-        
+
     }
-    
+
     private boolean updateHeader(int offset, int len, int data)
-    throws IOException {
-        
+            throws IOException {
+
         byte[] arr = integer2array(data, len);
-        
+
         file.seek(offset);
         file.write(arr);
-        
+
         return true;
-        
+
     }
-    
+
     static private byte[] integer2array(int data, int count) {
         byte[] ret = new byte[count];
         for (int i = 0; i < count; i++) {
@@ -455,11 +468,12 @@ public class DbfFile {
         }
         return ret;
     }
-    
+
     public static enum Position {
+
         TOP, BOTTOM
     }
-    
+
     public Field[] getFields() {
         return fields;
     }
