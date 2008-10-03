@@ -95,8 +95,7 @@ public class DbfFile {
         loadFieldsStructure($data);
 
         logger.log(Level.INFO, "fields count:" + fields.length);
-        pointer = 1;
-
+        pointer = 1;      
     }
 
     public int skip() throws IOException {
@@ -225,8 +224,9 @@ public class DbfFile {
         return deleted;
     }
 
-    public void setDeleted(boolean deleted) {
+    public void setDeleted(boolean deleted) throws IOException {
         this.deleted = deleted;
+        go(pointer);
     }
 
     public static class Field {
