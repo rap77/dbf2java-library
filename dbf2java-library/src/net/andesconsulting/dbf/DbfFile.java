@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -251,7 +253,12 @@ public class DbfFile {
                         data[15]});
 
             logger.log(Level.FINE, "field offset:" + f.offset);
-            f.length = data[16];
+            if (f.type == 'C') {
+                ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[]{data[17], data[16]});
+                f.length = byteBuffer.asShortBuffer().get(0);
+            }
+            else
+                f.length = data[16];
             logger.log(Level.FINE, "field length:" + f.length);
 
             f.decimalPlaces = data[17];
@@ -264,7 +271,6 @@ public class DbfFile {
             logger.log(Level.INFO, f.name + "\t" + f.type + "\t" + f.length);
             return f;
         }
-
         /*
          * public Field(String name, char type, int offset, short length, short
          * decimalPlaces, short flag) { this(); this.name = name; this.type =
@@ -315,14 +321,22 @@ public class DbfFile {
      * valor serï¿½ 1. Si Index es mayor a la cantidad de registros, el puntero se
      * ubicarï¿½ en el EOF, es decir en un registro siguiente al ï¿½ltimo.
      *
-     * @param index
-     *            El nuevo registro a apuntar
+     * @param index El nuevo registro a apuntar
      * @return La nueva ubicacion
      */
+    
+    /* Cuando se accede a un registro lógicamente borrado se avanza hasta
+     * encontrar un registro no borrado. Si no hay registros no borrados se 
+     * levanta una excepción de IOException.
+     */ 
     public int go(int index) throws IOException {
-        pointer = index > 0 ? index > count ? count + 1 : index : 1;
-        if (isDeleted() && isDeletedRecord() && !eof()) {
-            skip();
+        pointer = ((index > 0) ? ((index > count) ? (count + 1) : index) : 1);
+        if (isDeleted()) {
+            while (isDeletedRecord() && (! eof())) {
+                pointer ++;
+            }           
+            if (eof())
+                throw new IOException();
         }
         return pointer;
     }
@@ -403,13 +417,22 @@ public class DbfFile {
         byte[] data = new byte[recordWidth];
         file.read(data);
         StringBuffer sb = new StringBuffer();
+        String fieldValue;
         for (Field field : fields) {
             byte[] arr = extractArray(data, field.offset, field.length);
-            for (byte a : arr) {
-
-                sb.append((char) (a & 0xff));
+            if (field.getType() == 'I') {
+                ByteBuffer byteBuffer = ByteBuffer.wrap(arr);
+                byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+                fieldValue = new Integer(byteBuffer.asIntBuffer().get(0)).toString();
             }
-            ret.put(field.getName(), sb.toString().trim());
+           
+            else     {
+                for (byte a : arr) {
+                    sb.append((char) (a & 0xff));
+                }
+                fieldValue = sb.toString().trim();
+            }
+            ret.put(field.getName(), fieldValue);
             sb.setLength(0);
             sb.trimToSize();
         }
