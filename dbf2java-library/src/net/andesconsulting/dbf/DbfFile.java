@@ -97,7 +97,7 @@ public class DbfFile {
         loadFieldsStructure($data);
 
         logger.log(Level.INFO, "fields count:" + fields.length);
-        pointer = 1;      
+        pointer = 1;
     }
 
     public int skip() throws IOException {
@@ -324,17 +324,17 @@ public class DbfFile {
      * @param index El nuevo registro a apuntar
      * @return La nueva ubicacion
      */
-    
+
     /* Cuando se accede a un registro lógicamente borrado se avanza hasta
-     * encontrar un registro no borrado. Si no hay registros no borrados se 
+     * encontrar un registro no borrado. Si no hay registros no borrados se
      * levanta una excepción de IOException.
-     */ 
+     */
     public int go(int index) throws IOException {
         pointer = ((index > 0) ? ((index > count) ? (count + 1) : index) : 1);
         if (isDeleted()) {
             while (isDeletedRecord() && (! eof())) {
                 pointer ++;
-            }           
+            }
             if (eof())
                 throw new IOException();
         }
@@ -425,7 +425,7 @@ public class DbfFile {
                 byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
                 fieldValue = new Integer(byteBuffer.asIntBuffer().get(0)).toString();
             }
-           
+
             else     {
                 for (byte a : arr) {
                     sb.append((char) (a & 0xff));
